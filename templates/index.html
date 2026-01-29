@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Система кластеризации данных{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0"><i class="fas fa-home me-2"></i>Добро пожаловать!</h3>
+            </div>
+            <div class="card-body">
+                <h4 class="card-title">Система для исследования методов кластеризации данных</h4>
+                <p class="card-text">
+                    Данная информационная система предназначена для проведения анализа данных, 
+                    их предобработки и применения различных алгоритмов кластеризации.
+                </p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-upload fa-3x text-primary mb-3"></i>
+                                <h5>Загрузка данных</h5>
+                                <p>Поддерживаются форматы CSV и Excel</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                                <h5>Анализ статистики</h5>
+                                <p>Детальная статистика и обнаружение аномалий</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-warning">
+                            <div class="card-body text-center">
+                                <i class="fas fa-filter fa-3x text-warning mb-3"></i>
+                                <h5>Предобработка</h5>
+                                <p>Заполнение пропусков, удаление выбросов</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-danger">
+                            <div class="card-body text-center">
+                                <i class="fas fa-project-diagram fa-3x text-danger mb-3"></i>
+                                <h5>Кластеризация</h5>
+                                <p>5 алгоритмов кластеризации с визуализацией</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>Поддерживаемые алгоритмы кластеризации:</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            K-Means
+                            <span class="badge bg-primary rounded-pill">Популярный</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            DBSCAN
+                            <span class="badge bg-success rounded-pill">Для шумных данных</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Иерархическая
+                            <span class="badge bg-warning rounded-pill">Иерархическая</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Гауссовы смеси (GMM)
+                            <span class="badge bg-info rounded-pill">Вероятностный</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Спектральная
+                            <span class="badge bg-danger rounded-pill">На основе графов</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play me-2"></i>Начать работу
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4 shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Инструкция по работе</h5>
+            </div>
+            <div class="card-body">
+                <ol class="list-group list-group-numbered">
+                    <li class="list-group-item">Загрузите файл с данными (CSV или Excel)</li>
+                    <li class="list-group-item">Просмотрите статистику по данным</li>
+                    <li class="list-group-item">Выполните предобработку данных при необходимости</li>
+                    <li class="list-group-item">Выберите алгоритм кластеризации и параметры</li>
+                    <li class="list-group-item">Просмотрите результаты и сохраните их</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Инициализация на главной странице
+    document.addEventListener('DOMContentLoaded', function() {
+        // Проверка наличия активной сессии
+        fetch('/api/session_check')
+            .then(response => response.json())
+            .then(data => {
+                if (data.has_session && data.filename) {
+                    // Показать информацию о загруженном файле
+                    const sessionInfo = document.createElement('div');
+                    sessionInfo.className = 'alert alert-info mt-3';
+                    sessionInfo.innerHTML = `
+                        <i class="fas fa-file me-2"></i>
+                        Загружен файл: <strong>${data.filename}</strong>
+                        <a href="${data.url}" class="btn btn-sm btn-outline-info ms-3">
+                            Продолжить работу
+                        </a>
+                    `;
+                    document.querySelector('.card-body').prepend(sessionInfo);
+                }
+            });
+    });
+</script>
+{% endblock %}

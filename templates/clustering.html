@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Кластеризация данных{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-project-diagram me-2"></i>Кластеризация данных</h2>
+            <div>
+                <span class="badge bg-primary fs-6">
+                    <i class="fas fa-file me-1"></i>{{ filename }}
+                </span>
+            </div>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+        </div>
+        {% endif %}
+        
+        <!-- Выбор алгоритма кластеризации -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Выбор алгоритма кластеризации</h5>
+            </div>
+            <div class="card-body">
+                <form id="clusteringForm" method="POST" class="needs-validation" novalidate>
+                    <!-- Выбор столбцов -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Выберите признаки для кластеризации:</label>
+                        <p class="text-muted">Рекомендуется выбирать числовые столбцы</p>
+                        
+                        <div class="row">
+                            {% for column in columns %}
+                            <div class="col-md-3 col-sm-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="columns" value="{{ column }}" 
+                                           id="cluster_col_{{ loop.index }}">
+                                    <label class="form-check-label" for="cluster_col_{{ loop.index }}">
+                                        {{ column }}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="selectNumeric">
+                                <i class="fas fa-calculator me-1"></i>Выбрать все числовые
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAll">
+                                <i class="fas fa-check-double me-1"></i>Выбрать все
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAll">
+                                <i class="fas fa-times me-1"></i>Снять все
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Выбор алгоритма -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Алгоритм кластеризации:</label>
+                            <select id="algorithmSelect" name="algorithm" class="form-select" required>
+                                <option value="kmeans">K-Means</option>
+                                <option value="dbscan">DBSCAN</option>
+                                <option value="hierarchical">Иерархическая кластеризация</option>
+                                <option value="gmm">Гауссовы смеси (GMM)</option>
+                                <option value="spectral">Спектральная кластеризация</option>
+                            </select>
+                            
+                            <div class="form-text mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="algorithmDescription">
+                                    <strong>K-Means</strong>: Быстрый и эффективный для сферических кластеров
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Параметры алгоритма:</label>
+                            <div id="algorithmParams">
+                                <!-- Параметры будут динамически подгружаться -->
+                                <div class="form-group">
+                                    <label for="nClusters">Количество кластеров:</label>
+                                    <input type="number" id="nClusters" name="nClusters" 
+                                           min="2" max="20" value="3" class="form-control">
+                                </div>
+                            </div>
+                            
+                            <div class="mt-2">
+                                <button type="button" id="optimizeClustersBtn" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-magic me-1"></i>Оптимизировать количество кластеров
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Описание алгоритмов -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Описание алгоритмов</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <h6>K-Means</h6>
+                                    <p class="small">Разделяет данные на k кластеров, минимизируя внутрикластерную дисперсию</p>
+                                    <span class="badge bg-primary">Быстрый</span>
+                                    <span class="badge bg-info">Для сферических кластеров</span>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <h6>DBSCAN</h6>
+                                    <p class="small">Обнаруживает кластеры произвольной формы и выявляет выбросы</p>
+                                    <span class="badge bg-success">Работает с шумом</span>
+                                    <span class="badge bg-warning">Не требует указания k</span>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <h6>Иерархическая</h6>
+                                    <p class="small">Строит иерархию кластеров (дендрограмму)</p>
+                                    <span class="badge bg-info">Визуализация</span>
+                                    <span class="badge bg-secondary">Вычислительно сложный</span>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <h6>GMM</h6>
+                                    <p class="small">Моделирует данные как смесь гауссовых распределений</p>
+                                    <span class="badge bg-primary">Вероятностный</span>
+                                    <span class="badge bg-info">Мягкая кластеризация</span>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <h6>Спектральная</h6>
+                                    <p class="small">Использует спектральную теорию графов</p>
+                                    <span class="badge bg-success">Для невыпуклых кластеров</span>
+                                    <span class="badge bg-warning">Требует много памяти</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Кнопки отправки -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('preprocessing') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Назад к предобработке
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play me-2"></i>Выполнить кластеризацию
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Информация о выбранном алгоритме -->
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Рекомендации</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-check-circle text-success me-2"></i>Когда использовать:</h6>
+                        <ul>
+                            <li><strong>K-Means</strong>: когда известно количество кластеров и они сферические</li>
+                            <li><strong>DBSCAN</strong>: для данных с шумом и кластерами разной плотности</li>
+                            <li><strong>Иерархическую</strong>: когда нужна визуализация иерархии</li>
+                            <li><strong>GMM</strong>: для вероятностной модели данных</li>
+                            <li><strong>Спектральную</strong>: для сложных, невыпуклых кластеров</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-exclamation-triangle text-warning me-2"></i>Ограничения:</h6>
+                        <ul>
+                            <li>Перед кластеризацией желательно нормализовать данные</li>
+                            <li>Метрики качества могут давать противоречивые результаты</li>
+                            <li>Визуализация возможна только для 2-3 признаков</li>
+                            <li>Некоторые алгоритмы чувствительны к начальной инициализации</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Описания алгоритмов
+const algorithmDescriptions = {
+    'kmeans': '<strong>K-Means</strong>: Быстрый и эффективный алгоритм для сферических кластеров одинакового размера',
+    'dbscan': '<strong>DBSCAN</strong>: Обнаруживает кластеры произвольной формы, устойчив к выбросам',
+    'hierarchical': '<strong>Иерархическая</strong>: Строит дендрограмму кластеров, позволяет выбирать уровень детализации',
+    'gmm': '<strong>GMM</strong>: Вероятностная модель, позволяет объектам принадлежать нескольким кластерам',
+    'spectral': '<strong>Спектральная</strong>: Использует собственные значения матрицы сходства, хорошо работает с невыпуклыми кластерами'
+};
+
+// Обновление описания при выборе алгоритма
+document.getElementById('algorithmSelect').addEventListener('change', function() {
+    const algorithm = this.value;
+    document.getElementById('algorithmDescription').innerHTML = algorithmDescriptions[algorithm];
+});
+
+// Управление выбором столбцов
+document.getElementById('selectAll').addEventListener('click', function() {
+    document.querySelectorAll('input[name="columns"]').forEach(cb => cb.checked = true);
+});
+
+document.getElementById('deselectAll').addEventListener('click', function() {
+    document.querySelectorAll('input[name="columns"]').forEach(cb => cb.checked = false);
+});
+
+document.getElementById('selectNumeric').addEventListener('click', function() {
+    // В реальном приложении здесь бы делался запрос к серверу
+    // Для примера выбираем столбцы, которые выглядят как числовые
+    document.querySelectorAll('input[name="columns"]').forEach(cb => {
+        const label = cb.parentElement.querySelector('.form-check-label').textContent;
+        // Простая эвристика для числовых столбцов
+        if (label.toLowerCase().includes('age') || 
+            label.toLowerCase().includes('salary') ||
+            label.toLowerCase().includes('price') ||
+            label.toLowerCase().includes('value') ||
+            label.toLowerCase().includes('score') ||
+            label.match(/\d/)) {
+            cb.checked = true;
+        }
+    });
+});
+
+// Инициализация описания при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    const algorithm = document.getElementById('algorithmSelect').value;
+    document.getElementById('algorithmDescription').innerHTML = algorithmDescriptions[algorithm];
+});
+</script>
+{% endblock %}

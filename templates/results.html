@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}Результаты кластеризации{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-chart-pie me-2"></i>Результаты кластеризации</h2>
+            <button onclick="saveResults()" class="btn btn-success">
+                <i class="fas fa-save me-2"></i>Сохранить результаты
+            </button>
+        </div>
+        
+        <!-- Основная информация -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Информация о кластеризации</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Алгоритм</h6>
+                                <h3 class="text-primary">{{ results.algorithm|upper }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Кластеров</h6>
+                                <h3 class="text-success">{{ results.n_clusters }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Объектов</h6>
+                                <h3 class="text-info">{{ results.labels|length }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Использованные признаки:</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for column in results.columns %}
+                        <span class="badge bg-secondary">{{ column }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                {% if results.metrics %}
+                <div class="mb-3">
+                    <h6>Метрики качества:</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Silhouette Score</h6>
+                                    <h4 class="{% if results.metrics.silhouette_score and results.metrics.silhouette_score > 0.5 %}text-success{% elif results.metrics.silhouette_score and results.metrics.silhouette_score > 0.25 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ results.metrics.silhouette_score or 'N/A' }}
+                                    </h4>
+                                    <small class="text-muted">Чем ближе к 1, тем лучше</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Calinski-Harabasz</h6>
+                                    <h4 class="text-info">
+                                        {{ results.metrics.calinski_harabasz_score or 'N/A' }}
+                                    </h4>
+                                    <small class="text-muted">Чем выше, тем лучше</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Davies-Bouldin</h6>
+                                    <h4 class="{% if results.metrics.davies_bouldin_score and results.metrics.davies_bouldin_score < 0.5 %}text-success{% elif results.metrics.davies_bouldin_score and results.metrics.davies_bouldin_score < 1 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ results.metrics.davies_bouldin_score or 'N/A' }}
+                                    </h4>
+                                    <small class="text-muted">Чем ближе к 0, тем лучше</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Визуализация -->
+        {% if visualization_path %}
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Визуализация результатов</h5>
+            </div>
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='../' + visualization_path) }}" 
+                     alt="Визуализация кластеризации" 
+                     class="img-fluid rounded" 
+                     style="max-height: 500px;">
+                
+                <div class="mt-3">
+                    <a href="{{ url_for('static', filename='../' + visualization_path) }}" 
+                       download="clustering_results.png" 
+                       class="btn btn-outline-success">
+                        <i class="fas fa-download me-2"></i>Скачать изображение
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Распределение по кластерам -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Распределение объектов по кластерам</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div id="clusterChart"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Кластер</th>
+                                        <th>Количество объектов</th>
+                                        <th>Процент</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clusterTableBody">
+                                    <!-- Заполнится JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Примеры объектов из каждого кластера -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-table me-2"></i>Примеры объектов по кластерам</h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="clustersAccordion">
+                    {% for cluster_id in range(results.n_clusters) %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ cluster_id }}">
+                            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse{{ cluster_id }}">
+                                Кластер {{ cluster_id }} 
+                                <span class="badge bg-primary ms-2">
+                                    {{ results.labels|select('equalto', cluster_id)|list|length }} объектов
+                                </span>
+                            </button>
+                        </h2>
+                        <div id="collapse{{ cluster_id }}" 
+                             class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
+                             data-bs-parent="#clustersAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                {% for column in results.columns %}
+                                                <th>{{ column }}</th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for i in range(5) %}
+                                            {% if i < results.data|length and results.labels[i] == cluster_id %}
+                                            <tr>
+                                                <td>{{ loop.index }}</td>
+                                                {% for value in results.data[i] %}
+                                                <td>{{ "%.4f"|format(value) }}</td>
+                                                {% endfor %}
+                                            </tr>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Кнопки навигации -->
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('clustering') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к настройкам
+                    </a>
+                    <div>
+                        <button onclick="saveResults()" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>Сохранить результаты
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary ms-2">
+                            <i class="fas fa-home me-2"></i>На главную
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+// Подсчет объектов по кластерам
+function countClusters(labels) {
+    const counts = {};
+    labels.forEach(label => {
+        counts[label] = (counts[label] || 0) + 1;
+    });
+    return counts;
+}
+
+// Построение графика распределения кластеров
+function plotClusterDistribution() {
+    const labels = {{ results.labels|tojson }};
+    const clusterCounts = countClusters(labels);
+    
+    // Создание данных для графика
+    const clusterIds = Object.keys(clusterCounts).sort((a, b) => a - b);
+    const data = [{
+        x: clusterIds.map(id => `Кластер ${id}`),
+        y: clusterIds.map(id => clusterCounts[id]),
+        type: 'bar',
+        marker: {
+            color: clusterIds.map(id => 
+                id == -1 ? '#95a5a6' : 
+                id % 5 == 0 ? '#3498db' :
+                id % 5 == 1 ? '#2ecc71' :
+                id % 5 == 2 ? '#e74c3c' :
+                id % 5 == 3 ? '#f39c12' :
+                '#9b59b6'
+            )
+        }
+    }];
+    
+    const layout = {
+        title: 'Распределение объектов по кластерам',
+        xaxis: { title: 'Кластер' },
+        yaxis: { title: 'Количество объектов' },
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: 'rgba(0,0,0,0)'
+    };
+    
+    Plotly.newPlot('clusterChart', data, layout);
+    
+    // Заполнение таблицы
+    const tableBody = document.getElementById('clusterTableBody');
+    tableBody.innerHTML = '';
+    
+    const total = labels.length;
+    clusterIds.forEach(clusterId => {
+        const count = clusterCounts[clusterId];
+        const percentage = ((count / total) * 100).toFixed(2);
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${clusterId == -1 ? 'Шум' : `Кластер ${clusterId}`}</td>
+            <td>${count}</td>
+            <td>
+                <div class="progress">
+                    <div class="progress-bar" style="width: ${percentage}%">
+                        ${percentage}%
+                    </div>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// Сохранение результатов
+function saveResults() {
+    const btn = document.querySelector('button[onclick="saveResults()"]');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Сохранение...';
+    
+    fetch('/save_results', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Показать уведомление
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-success alert-dismissible fade show';
+            notification.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                Результаты успешно сохранены!
+                <div class="mt-2">
+                    <a href="/download/${data.results_file}" class="btn btn-sm btn-outline-success me-2">
+                        <i class="fas fa-download me-1"></i>Скачать данные
+                    </a>
+                    <a href="/download/${data.metrics_file}" class="btn btn-sm btn-outline-info">
+                        <i class="fas fa-chart-bar me-1"></i>Скачать метрики
+                    </a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.querySelector('.container').prepend(notification);
+        } else {
+            throw new Error(data.error);
+        }
+    })
+    .catch(error => {
+        alert('Ошибка сохранения: ' + error.message);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    plotClusterDistribution();
+});
+</script>
+{% endblock %}

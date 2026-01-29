@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Статистика данных{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-chart-bar me-2"></i>Статистика данных</h2>
+            <div>
+                <span class="badge bg-primary fs-6">
+                    <i class="fas fa-file me-1"></i>{{ filename }}
+                </span>
+            </div>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+        </div>
+        {% endif %}
+        
+        <!-- Карточки с общей статистикой -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title">Записей</h6>
+                                <h2 class="mb-0">{{ stats.total_records }}</h2>
+                            </div>
+                            <i class="fas fa-database fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title">Столбцов</h6>
+                                <h2 class="mb-0">{{ stats.total_columns }}</h2>
+                            </div>
+                            <i class="fas fa-columns fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title">Пропусков</h6>
+                                <h2 class="mb-0">{{ missing_stats.total_missing }}</h2>
+                            </div>
+                            <i class="fas fa-exclamation-circle fa-2x opacity-75"></i>
+                        </div>
+                        <small>{{ missing_stats.total_missing_percent }}% от всех значений</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title">Память</h6>
+                                <h2 class="mb-0">{{ "%.2f"|format(stats.memory_usage) }} МБ</h2>
+                            </div>
+                            <i class="fas fa-memory fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Таблица пропущенных значений -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Пропущенные значения</h5>
+            </div>
+            <div class="card-body">
+                {% if missing_stats.total_missing > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Столбец</th>
+                                <th>Пропущено значений</th>
+                                <th>Процент пропусков</th>
+                                <th>Тип данных</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in range(missing_stats.columns|length) %}
+                            {% if missing_stats.missing_count[i] > 0 %}
+                            <tr>
+                                <td>{{ missing_stats.columns[i] }}</td>
+                                <td>{{ missing_stats.missing_count[i] }}</td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-{% if missing_stats.missing_percent[i] > 50 %}danger{% elif missing_stats.missing_percent[i] > 20 %}warning{% else %}info{% endif %}" 
+                                             style="width: {{ missing_stats.missing_percent[i] }}%">
+                                            {{ missing_stats.missing_percent[i] }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if stats.column_types[missing_stats.columns[i]] in ['int64', 'float64'] %}primary{% else %}secondary{% endif %}">
+                                        {{ stats.column_types[missing_stats.columns[i]] }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    В данных нет пропущенных значений!
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Статистика по типам данных -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Типы данных</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Числовые столбцы ({{ stats.numeric_columns|length }}):</h6>
+                        <ul class="list-group mb-3">
+                            {% for col in stats.numeric_columns %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ col }}
+                                <span class="badge bg-primary rounded-pill">
+                                    {{ stats.column_types[col] }}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Категориальные столбцы ({{ stats.categorical_columns|length }}):</h6>
+                        <ul class="list-group">
+                            {% for col in stats.categorical_columns %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ col }}
+                                <span class="badge bg-secondary rounded-pill">
+                                    {{ stats.column_types[col] }}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Дескриптивная статистика -->
+        {% if stats.numeric_columns|length > 0 %}
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>Дескриптивная статистика</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover data-table">
+                        <thead>
+                            <tr>
+                                <th>Статистика</th>
+                                {% for col in stats.numeric_columns[:5] %}
+                                <th data-sortable="true">{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in ['count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max'] %}
+                            {% if stat in stats.descriptive_stats %}
+                            <tr>
+                                <td><strong>{{ stat }}</strong></td>
+                                {% for col in stats.numeric_columns[:5] %}
+                                <td>
+                                    {% if col in stats.descriptive_stats[stat] %}
+                                    {{ "%.4f"|format(stats.descriptive_stats[stat][col]) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if stats.numeric_columns|length > 5 %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Показаны первые 5 числовых столбцов. Всего числовых столбцов: {{ stats.numeric_columns|length }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Навигационные кнопки -->
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Загрузить другой файл
+                    </a>
+                    <div>
+                        <a href="{{ url_for('preprocessing') }}" class="btn btn-primary">
+                            Перейти к предобработке <i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Инициализация сортировки таблиц
+document.addEventListener('DOMContentLoaded', function() {
+    // Добавление интерактивности к таблицам
+    const tables = document.querySelectorAll('.data-table');
+    tables.forEach(table => {
+        const headers = table.querySelectorAll('th[data-sortable]');
+        headers.forEach(header => {
+            header.style.cursor = 'pointer';
+            header.title = 'Нажмите для сортировки';
+        });
+    });
+});
+</script>
+{% endblock %}

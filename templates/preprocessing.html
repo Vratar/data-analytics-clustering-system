@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Предобработка данных{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-filter me-2"></i>Предобработка данных</h2>
+            <div>
+                <span class="badge bg-primary fs-6">
+                    <i class="fas fa-file me-1"></i>{{ filename }}
+                </span>
+            </div>
+        </div>
+        
+        <!-- Заполнение пропущенных значений -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-fill-drip me-2"></i>Заполнение пропущенных значений</h5>
+            </div>
+            <div class="card-body">
+                {% if missing_stats.total_missing > 0 %}
+                <form method="POST" class="needs-validation" novalidate>
+                    <input type="hidden" name="action" value="fill_missing">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Выберите столбцы для обработки:</label>
+                        <div class="row">
+                            {% for column in columns %}
+                            <div class="col-md-3 col-sm-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="columns" value="{{ column }}" 
+                                           id="col_{{ loop.index }}">
+                                    <label class="form-check-label" for="col_{{ loop.index }}">
+                                        {{ column }}
+                                        {% for i in range(missing_stats.columns|length) %}
+                                        {% if missing_stats.columns[i] == column and missing_stats.missing_count[i] > 0 %}
+                                        <span class="badge bg-danger ms-1">
+                                            {{ missing_stats.missing_count[i] }} пропусков
+                                        </span>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">
+                            Оставьте пустым, чтобы обработать все столбцы с пропусками
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Метод заполнения:</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <select name="method" class="form-select" required>
+                                    <option value="mean">Среднее значение</option>
+                                    <option value="median">Медиана</option>
+                                    <option value="mode">Мода</option>
+                                    <option value="ffill">Заполнение вперед</option>
+                                    <option value="bfill">Заполнение назад</option>
+                                    <option value="knn">K-ближайших соседей</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            <strong>KNN</strong> рекомендуется для сложных случаев с множественными пропусками
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-fill-drip me-2"></i>Заполнить пропуски
+                    </button>
+                </form>
+                {% else %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    В данных нет пропущенных значений для заполнения
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Обнаружение и удаление выбросов -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-radiation me-2"></i>Обнаружение выбросов</h5>
+            </div>
+            <div class="card-body">
+                {% if outliers_info %}
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Столбец</th>
+                                <th>Количество выбросов</th>
+                                <th>Процент выбросов</th>
+                                <th>Метод обнаружения</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for column, info in outliers_info.items() %}
+                            {% if info.outlier_count > 0 %}
+                            <tr>
+                                <td>{{ column }}</td>
+                                <td>{{ info.outlier_count }}</td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-{% if info.outlier_percent > 10 %}danger{% elif info.outlier_percent > 5 %}warning{% else %}info{% endif %}" 
+                                             style="width: {{ info.outlier_percent }}%">
+                                            {{ info.outlier_percent }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>Межквартильный размах (IQR)</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <form method="POST" class="needs-validation" novalidate>
+                    <input type="hidden" name="action" value="remove_outliers">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Метод обработки выбросов:</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <select name="outlier_method" class="form-select" required>
+                                    <option value="iqr">Удаление (метод IQR)</option>
+                                    <option value="zscore">Удаление (метод Z-score)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            <strong>IQR</strong> - удаляет значения за пределами 1.5 * IQR<br>
+                            <strong>Z-score</strong> - удаляет значения с |Z| > 3
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-2"></i>Удалить выбросы
+                    </button>
+                </form>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Нет числовых столбцов для обнаружения выбросов
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Навигационные кнопки -->
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('show_statistics') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад к статистике
+                    </a>
+                    <div>
+                        <a href="{{ url_for('clustering') }}" class="btn btn-primary">
+                            Перейти к кластеризации <i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Выбор всех столбцов для обработки
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'btn btn-sm btn-outline-primary mb-3';
+    selectAllBtn.innerHTML = '<i class="fas fa-check-double me-1"></i>Выбрать все столбцы с пропусками';
+    
+    selectAllBtn.addEventListener('click', function() {
+        const checkboxes = document.querySelectorAll('input[name="columns"]');
+        const columnsWithMissing = Array.from(checkboxes).filter(cb => {
+            const label = cb.parentElement.querySelector('.form-check-label');
+            return label.textContent.includes('пропусков');
+        });
+        
+        columnsWithMissing.forEach(cb => cb.checked = true);
+    });
+    
+    const missingSection = document.querySelector('form[action*="fill_missing"]');
+    if (missingSection) {
+        missingSection.querySelector('.row').parentElement.before(selectAllBtn);
+    }
+});
+</script>
+{% endblock %}
